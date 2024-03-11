@@ -2,37 +2,58 @@ package handler
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/sainath/e-commerce-app/common/pkg"
 	"github.com/sainath/e-commerce-app/user-service/model"
-	"github.com/sainath/e-commerce-app/user-service/repository"
-	"gorm.io/gorm"
+	"github.com/sainath/e-commerce-app/user-service/service"
 )
 
-var (
-	db  *gorm.DB
-	err error
-)
+func RegisterUser(w http.ResponseWriter, r *http.Request) {
+	var userRegisterRequestDto model.UserRegisterRequestDto
+	w.Header().Set("Content-Type", "application/json")
+	json.NewDecoder(r.Body).Decode(&userRegisterRequestDto)
+	isExist, _ := service.IsUserExist(userRegisterRequestDto.Email)
 
-func init() {
-	db, err = repository.DbConnection()
-	if err != nil {
-		log.Fatalln("Unable to connect database, due to error: " + err.Error())
+	if isExist {
+		w.WriteHeader(http.StatusNotModified)
+		json.NewEncoder(w).Encode(&model.UserRegisterResponseDto{Message: "User Already Exists..! Try different email..!", Status: false})
+		return
 	}
-	db.AutoMigrate(&model.UserAddress{})
+
+	isRegistered, err := service.RegisterUserService(userRegisterRequestDto)
+	if !isRegistered {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(&model.UserRegisterResponseDto{Message: err.Error(), Status: false})
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(&model.UserRegisterResponseDto{Message: "User Registered Successfully..!", Status: true})
+
 }
 
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var userLogin model.UserLogin
+	var userLoginRequestDto model.UserLoginRequestDto
 	w.Header().Set("Content-Type", "application/json")
-	json.NewDecoder(r.Body).Decode(&userLogin)
-	token, err := pkg.GenerateToken(userLogin.Username)
+	json.NewDecoder(r.Body).Decode(&userLoginRequestDto)
+	isExist, err := service.IsUserExist(userLoginRequestDto.Username)
+	if !isExist {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "No user found with username " + userLoginRequestDto.Username, Status: false, Token: err.Error()})
+		return
+	}
+	isAuthenticated, err := service.IsAuthenticated(userLoginRequestDto.Username, userLoginRequestDto.Password)
+	if !isAuthenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "Invalid Password, Try again! ", Status: false, Token: err.Error()})
+		return
+	}
+	token, err := pkg.GenerateToken(userLoginRequestDto.Username)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "Unable to generate token", Status: false, Token: err.Error()})
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(token))
+	json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "User successfully loggedin..!", Status: true, Token: token})
 }
