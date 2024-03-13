@@ -2,7 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/gorilla/mux"
+	"gorm.io/gorm"
+	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/sainath/e-commerce-app/common/pkg"
 	"github.com/sainath/e-commerce-app/user-service/model"
@@ -43,7 +47,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "No user found with username " + userLoginRequestDto.Username, Status: false, Token: err.Error()})
 		return
 	}
-	isAuthenticated, err := service.IsAuthenticated(userLoginRequestDto.Username, userLoginRequestDto.Password)
+	userId, isAuthenticated, err := service.IsAuthenticated(userLoginRequestDto.Username, userLoginRequestDto.Password)
 	if !isAuthenticated {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "Invalid Password, Try again! ", Status: false, Token: err.Error()})
@@ -55,5 +59,22 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "Unable to generate token", Status: false, Token: err.Error()})
 	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(&model.UserLoginResponseDto{Message: "User successfully loggedin..!", Status: true, Token: token})
+	json.NewEncoder(w).Encode(&model.UserLoginResponseDto{UserId: userId, Message: "User successfully loggedin..!", Status: true, Token: token})
+}
+
+func GetUserDetails(w http.ResponseWriter, r *http.Request) {
+	var userDetails model.UserDetails
+	vars := mux.Vars(r)
+	userid, err := strconv.Atoi(vars["userid"])
+	if err != nil {
+		log.Fatalln("Error converting userid to int")
+	}
+	err = service.GetDetails(userid, &userDetails)
+	if err == gorm.ErrRecordNotFound {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(&model.ErrorResponse{Message: "token is not belongs to this user with user id: " + vars["userid"], ErrorString: "Token mismatch"})
+		return
+	}
+	json.NewEncoder(w).Encode(&userDetails)
+
 }

@@ -17,7 +17,7 @@ var (
 func init() {
 	db, err = repository.DbConnection()
 	if err != nil {
-		log.Fatalln("Unable to connect databse due to: " + err.Error())
+		log.Fatalln("Unable to connect database due to: " + err.Error())
 	}
 
 }
@@ -31,14 +31,14 @@ func IsUserExist(username string) (bool, error) {
 	return true, nil
 }
 
-func IsAuthenticated(username string, password string) (bool, error) {
+func IsAuthenticated(username string, password string) (int, bool, error) {
 	var user model.User
 	db.Model(&model.User{}).Where("email = ?", username).First(&user)
 	err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
-		return false, err
+		return 0, false, err
 	}
-	return true, nil
+	return int(user.ID), true, nil
 }
 
 func RegisterUserService(userRegister model.UserRegisterRequestDto) (bool, error) {
@@ -56,4 +56,25 @@ func RegisterUserService(userRegister model.UserRegisterRequestDto) (bool, error
 		return false, err
 	}
 	return true, nil
+}
+
+func GetUserEmail(id int) (string, error) {
+	var user model.User
+	err := db.Model(&model.User{}).First(&user, id).Error
+	if err != nil {
+		return "", err
+	}
+	return user.Email, nil
+}
+func GetDetails(id int, userDetails *model.UserDetails) error {
+	var user model.User
+	err := db.Model(&model.User{}).First(&user, id).Error
+	if err != nil {
+		return err
+	}
+	userDetails.UserId = int(user.ID)
+	userDetails.FirstName = user.FirstName
+	userDetails.LastName = user.LastName
+	userDetails.Email = user.Email
+	return nil
 }

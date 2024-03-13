@@ -35,6 +35,7 @@ type UserRegisterRequestDto struct {
 }
 
 type UserLoginResponseDto struct {
+	UserId  int    `json:"user_id"`
 	Message string `json:"message"`
 	Status  bool   `json:"status"`
 	Token   string `json:"token"`
@@ -43,4 +44,10 @@ type UserLoginResponseDto struct {
 type UserRegisterResponseDto struct {
 	Message string `json:"message"`
 	Status  bool   `json:"status"`
+}
+type UserDetails struct {
+	UserId    int    `json:"user_id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
 }
